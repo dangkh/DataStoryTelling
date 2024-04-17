@@ -20,6 +20,8 @@ library(shiny)
 library(DT)
 library(highcharter)
 library(quantmod)
+library(scales)
+library(ggplot2)
 source('helper_funcs.R')
 library(tidyverse)
 ui <- dashboardPage(
@@ -38,47 +40,38 @@ dropdownMenuOutput("messageMenu")
     tabItems(
       # First tab content
       tabItem(tabName = "dashboard",
-        # h2(paste0("Increase")),
-        # fluidRow(
-        #   valueBoxOutput("up1") ,
-        #   valueBoxOutput("up2") ,
-        #   valueBoxOutput("up3")
-        #   ),
-        h2(paste0("Decrease")),
+        h2(paste0("Market Watch")),
         fluidRow(
-          valueBoxOutput("ExGBox") ,
-          valueBoxOutput("ImGBox") ,
-          valueBoxOutput("BlGBox")
+          valueBoxOutput("m1") ,
+          valueBoxOutput("m2") ,
+          valueBoxOutput("m3")
+          ),
+        h2(paste0("Spotlight")),
+        fluidRow(
+          valueBoxOutput("up1", width = 2),
+          valueBoxOutput("up2", width = 2),
+          valueBoxOutput("up3", width = 2),
+          valueBoxOutput("ExGBox", width = 2) ,
+          valueBoxOutput("ImGBox", width = 2) ,
+          valueBoxOutput("BlGBox", width = 2)
           ),
         fluidRow(
-          box(
-            selectInput("variable", "Sort by:",
-                c("Percentage" = "per",
-                  "Value" = "val",
-                  "Volume" = "vol")),
-            tableOutput("data"),
-            width = 4
-          ),
+          column(highchartOutput("plotd"), width = 4),
           column(highchartOutput("plot1"), width = 4),
-          box(
-            selectInput("state", "Choose a state:",
-              list(`East Coast` = list("NY", "NJ", "CT"),
-             `West Coast` = list("WA", "OR", "CA"),
-             `Midwest` = list("MN", "WI", "IA"))
-              ),
-            textOutput("result"),
-            width = 4
-          )
+          column(
+              tabsetPanel(
+                id = 'dataset',
+                tabPanel("increase", DT::dataTableOutput("mytable1")),
+                tabPanel("decrease", DT::dataTableOutput("mytable2")),
+                tabPanel("volume", DT::dataTableOutput("mytable3"))
+              )
+          , width = 4)
         ),
       fluidRow(
         column( width = 8,h4("Stock Pice", align = 'center'), highchartOutput('lineHC') ),
-        box(
-            selectInput("watch list", "Add to list:",
-              list(`East Coast` = list("NY", "NJ", "CT"),
-             `West Coast` = list("WA", "OR", "CA"),
-             `Midwest` = list("MN", "WI", "IA"))
-              ),
-            textOutput("result"),
+        column(
+            checkboxGroupInput("show_vars", "Columns in diamonds to show:",
+                           c("VNINDEX", "VN30", "Interest Rate", "User account")),
             width = 4
           ),
       )
@@ -105,6 +98,25 @@ server <- function(input, output) {
                ))
                
 })
+dtf <- data.frame(name = c("ETB", "PMA", "PER", "KON", "TRA", 
+                  "DDR", "BUM", "MAT", "HED", "EXP"),
+                  val = c(.02, .11, -.01, -.03, -.03, .02, .1, -.01, -.02, 0.06), 
+                  vol = c(100, 20, 1000, 22, 101, 201, 30, 21, 13, 107),
+                  pri = c(10.7, 5.3, 33.4, 19.5, 27.7, 19.3, 103.2, 50.1, 67.2, 84.0))
+  output$mytable1 <- DT::renderDataTable({
+    DT::datatable(dtf, options = list(dom = 't'))
+  })
+
+  # sorted columns are colored now because CSS are attached to them
+  output$mytable2 <- DT::renderDataTable({
+    DT::datatable(dtf, options = list(dom = 't'))
+  })
+
+  # customize the length drop-down menu; display 5 rows per page by default
+  output$mytable3 <- DT::renderDataTable({
+    DT::datatable(dtf, options = list(dom = 't'))
+  })  
+  
 df <- data.frame(dose=c("D0.5", "D1", "D2"),
                 len=c(4.2, 10, 29.5))
 x <- getSymbols("GOOG", auto.assign = FALSE)
@@ -116,34 +128,63 @@ highchart(type = "stock") |>
   hc_add_series(y, type = "ohlc")
   })
 
-# output$up1 <- renderValueBox({
-#        valueBox(
-#           "SSI",
-#           paste0("1.2 (", "6.7" ,"%)"), 
-#           icon = icon("arrow-trend-up"), #icon("sign-in"),
-#           color = "green"
-#        )
-#     })
-#       
-#       ###
-# output$up2 <- renderValueBox({
-#    valueBox(
-#       "DIG",
-#       paste0("2.1 (", "6.0" ,"%)"), 
-#       icon = icon('arrow-trend-up'),# icon("sign-out"),
-#       color = "green"
-#    )
-# })
-# 
-# ###
-# output$up3 <- renderValueBox({
-#    valueBox(
-#       "NVL",
-#       paste0("1.7 (", "6.9" ,"%)"), 
-#       icon = icon("arrow-trend-up"), #icon("sign-in"),
-#       color = "fuchsia"
-#    )
-# })
+output$m1 <- renderValueBox({
+       valueBox(
+          "VnIndex",
+          paste0("1.2 (", "6.7" ,"%)"),
+          icon = icon("arrow-trend-up"), #icon("sign-in"),
+          color = "green"
+       )
+    })
+
+      ###
+output$m2 <- renderValueBox({
+   valueBox(
+      "VN30",
+      paste0("2.1 (", "6.0" ,"%)"),
+      icon = icon('arrow-trend-up'),# icon("sign-out"),
+      color = "green"
+   )
+})
+
+###
+output$m3 <- renderValueBox({
+   valueBox(
+      "HNX",
+      paste0("1.7 (", "6.9" ,"%)"),
+      icon = icon("arrow-trend-up"), #icon("sign-in"),
+      color = "green"
+   )
+})
+
+output$up1 <- renderValueBox({
+       valueBox(
+          "SSI",
+          paste0("1.2 (", "6.7" ,"%)"),
+          icon = icon("arrow-trend-up"), #icon("sign-in"),
+          color = "green"
+       )
+    })
+
+      ###
+output$up2 <- renderValueBox({
+   valueBox(
+      "ACB",
+      paste0("2.1 (", "6.0" ,"%)"),
+      icon = icon('arrow-trend-up'),# icon("sign-out"),
+      color = "green"
+   )
+})
+
+###
+output$up3 <- renderValueBox({
+   valueBox(
+      "VND",
+      paste0("1.7 (", "6.9" ,"%)"),
+      icon = icon("arrow-trend-up"), #icon("sign-in"),
+      color = "fuchsia"
+   )
+})
 output$ExGBox <- renderValueBox({
        valueBox(
           "PDR",
@@ -173,6 +214,28 @@ output$BlGBox <- renderValueBox({
    )
 })
   
+dtf <- data.frame(name = c("ETB", "PMA", "PER", "KON", "TRA", 
+                  "DDR", "BUM", "MAT", "HED", "EXP"),
+                  val = c(.02, .11, -.01, -.03, -.03, .02, .1, -.01, -.02, 0.06), cl = c(0, 0, 1, 1, 1, 0, 0, 1, 1, 0))
+
+output$plotd <- renderHighchart({
+#   ggplot(dtf, aes(x, y)) +
+#   geom_bar(stat = "identity", aes(fill = x), legend = FALSE) + 
+#   scale_y_continuous("Increased Point", labels = percent_format())+
+#     ggtitle("Leaders")+
+#     theme(
+#          panel.background = element_rect(fill='transparent'),
+#          plot.background = element_rect(fill='transparent', color=NA),
+#          panel.grid.major = element_blank(),
+#          panel.grid.minor = element_blank(),
+#          plot.title = element_text(hjust=0.5),
+#          legend.background = element_rect(fill='transparent'),
+#          legend.box.background = element_rect(fill='transparent')
+#        )
+#     
+  hchart(dtf, "column", hcaes(x = name, y = val, group = cl))
+  })
+
   
   output$plot1 <- renderHighchart({
     data <- data.frame(

@@ -7,29 +7,9 @@ library(DT)
 library(highcharter)
 library(quantmod)
 library(tidyverse)
-data <- data.frame(
-                  group=LETTERS[1:5],
-                  value=c(13,7,9,21,2)
-                  )
-data <- data |>
-    arrange(desc(group)) |>
-    mutate(prop = value / sum(data$value) *100) |>
-    mutate(ypos = cumsum(prop)- 0.5*prop )
-  
-  # Basic piechart
-    # ggplot(data, aes(x="", y=prop, fill=group)) +
-    # geom_bar(stat="identity", width=1, color="white") +
-    # coord_polar("y", start=0) +
-    # theme_void() + 
-    # theme(legend.position="none") +
-    # 
-    # geom_text(aes(y = ypos, label = group), color = "white", size=6) +
-    # scale_fill_brewer(palette="Set1")
-    hc <- data |>
-    hchart("pie", hcaes(x = group, y = prop))|>
-    hc_title(text = "Highcharter Pie chart") |>
-    hc_subtitle(text = "Top 10 countries by population <br>techanswers88") |>
-    hc_add_theme(hc_theme_ggplot2())
-    
-    hc
+dtf <- data.frame(name = c("ETB", "PMA", "PER", "KON", "TRA", 
+                  "DDR", "BUM", "MAT", "HED", "EXP"),
+                  val = c(.02, .11, -.01, -.03, -.03, .02, .1, -.01, -.02, 0.06), cl = c(0, 0, 1, 1, 1, 0, 0, 1, 1, 0))
+
+hchart(dtf, "column", hcaes(x = name, y = val, group = cl))
 ```
