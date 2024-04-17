@@ -1,0 +1,185 @@
+---
+title: "shinny"
+output: html_document
+date: "2024-04-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+library(shinydashboard)
+library(shiny)
+source('helper_funcs.R')
+ui <- dashboardPage(
+  dashboardHeader(
+    title = "VinUni DataVisualization Course",
+dropdownMenuOutput("messageMenu")
+  ),
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
+      menuItem("DetailBoard", tabName = "detail", icon = icon("th"), badgeLabel = "developing", badgeColor = "green")
+    )
+  ),
+  dashboardBody(
+    tabItems(
+      # First tab content
+      tabItem(tabName = "dashboard",
+        h2(paste0("Increase")),
+        fluidRow(
+          # A static infoBox
+          infoBox( "Cong ty chung khoan SSI","SSI (6.8%)",
+                  icon = icon("arrow-up-right-dots"), color = "purple"),
+          # Dynamic infoBoxes
+          infoBoxOutput("Box1"),
+          infoBoxOutput("Box2")
+        ),
+        h2(paste0("Decrease")),
+        fluidRow(
+          valueBoxOutput("ExGBox") ,
+          valueBoxOutput("ImGBox") ,
+          valueBoxOutput("BlGBox")
+          ),
+        fluidRow(
+          box(
+            selectInput("variable", "Sort by:",
+                c("Percentage" = "per",
+                  "Value" = "val",
+                  "Volume" = "vol")),
+            tableOutput("data"),
+            width = 4
+          ),
+          box(plotOutput("plot1"), width = 4),
+          box(
+            selectInput("state", "Choose a state:",
+              list(`East Coast` = list("NY", "NJ", "CT"),
+             `West Coast` = list("WA", "OR", "CA"),
+             `Midwest` = list("MN", "WI", "IA"))
+              ),
+            textOutput("result"),
+            width = 4
+          )
+        ),
+      fluidRow(
+        box(
+            selectInput("state", "Choose a state:",
+              list(`East Coast` = list("NY", "NJ", "CT"),
+             `West Coast` = list("WA", "OR", "CA"),
+             `Midwest` = list("MN", "WI", "IA"))
+              ),
+            textOutput("result"),
+            width = 4
+          ),
+        box(plotOutput("plot2"), width =  4),
+        box(
+            selectInput("watch list", "Add to list:",
+              list(`East Coast` = list("NY", "NJ", "CT"),
+             `West Coast` = list("WA", "OR", "CA"),
+             `Midwest` = list("MN", "WI", "IA"))
+              ),
+            textOutput("result"),
+            width = 4
+          ),
+      )
+      ),
+
+      # Second tab content
+      tabItem(tabName = "detail",
+        h2("DetailBoard tab content")
+      )
+    )
+  )
+)
+
+server <- function(input, output) {
+  set.seed(122)
+  thislist <- list("apple", "banana", "cherry")
+  currentDate <- Sys.Date() 
+  output$messageMenu <- renderMenu({
+  dropdownMenu(type = "notifications", 
+               notificationItem(
+               icon = icon("exclamation-triangle"),
+               status = "warning", 
+               text = paste("data is update at " , currentDate, sep = "",collapse = NULL)
+               ))
+               
+})
+  output$Box1 <- renderInfoBox({
+    infoBox( 
+        "Ngan hang co phan ACB","ACB (6.3%)", 
+        icon = icon("arrow-up-right-dots"), 
+        color = "green")
+  })
+  output$Box2 <- renderInfoBox({
+    infoBox( 
+        "Cong ty co phan HPG","HPG (6.3%)", 
+        icon = icon("arrow-up-right-dots"), 
+        color = "green")
+  })
+  output$ExGBox <- renderValueBox({
+         valueBox(
+            VB_style( paste0( '-', '$', "55.55", " m"),  "font-size: 60%;"  ),
+            paste0("Goods imports (", "90" ,"%)"), 
+            icon = icon("arrow-up-right-dots"), #icon("sign-in"),
+            color = "green"
+         )
+      })
+      
+      ###
+      output$ImGBox <- renderValueBox({
+         valueBox(
+            VB_style( paste0( '-', '$', "55.55", " m"),  "font-size: 60%;"  ),
+            paste0("Goods imports (", "90" ,"%)"), 
+            icon = icon('import', lib = 'glyphicon'),# icon("sign-out"),
+            color = "red"
+         )
+      })
+      
+      ###
+      output$BlGBox <- renderValueBox({
+         valueBox(
+            VB_style( paste0( '-', '$', "55.55", " m"),  "font-size: 60%;"  ),
+            "Goods balance", 
+            icon = icon("balance-scale"),
+            color = 'red' 
+         )
+      })
+  
+  output$data <- renderTable({
+      mtcars[, c("mpg", input$variable), drop = FALSE]
+    }, rownames = TRUE)
+  
+  output$plot1 <- renderPlot({
+    data <- data.frame(
+    group=LETTERS[1:5],
+    value=c(13,7,9,21,2)
+    )
+
+  # Compute the position of labels
+  data <- data |>
+    arrange(desc(group)) |>
+    mutate(prop = value / sum(data$value) *100) |>
+    mutate(ypos = cumsum(prop)- 0.5*prop )
+  
+  # Basic piechart
+  ggplot(data, aes(x="", y=prop, fill=group)) +
+    geom_bar(stat="identity", width=1, color="white") +
+    coord_polar("y", start=0) +
+    theme_void() + 
+    theme(legend.position="none") +
+    
+    geom_text(aes(y = ypos, label = group), color = "white", size=6) +
+    scale_fill_brewer(palette="Set1")
+
+  })
+}
+shinyApp(ui, server)
+```

@@ -1,0 +1,13 @@
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(pheatmap)
+nameA <- c("apple", "banana", "cherry", "c1", "c2", "c3")
+nameS <- c(6.1, 6.4, 6.5, 6.6, 7, 14)
+mdf <- list(name = nameA, value = nameS)
+mdf <- as.data.frame(mdf)
+m <- c(6.1, 6.4, 6.5, 6.6, 7, 14)
+colnames(m) <- paste("Col", 1:6)
+pheatmap(m, display_numbers=T, show_colnames=T, cluster_rows=F, cluster_cols=F)
+```
