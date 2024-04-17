@@ -3,11 +3,33 @@
 library(dplyr)
 library(ggplot2)
 library(pheatmap)
-nameA <- c("apple", "banana", "cherry", "c1", "c2", "c3")
-nameS <- c(6.1, 6.4, 6.5, 6.6, 7, 14)
-mdf <- list(name = nameA, value = nameS)
-mdf <- as.data.frame(mdf)
-m <- c(6.1, 6.4, 6.5, 6.6, 7, 14)
-colnames(m) <- paste("Col", 1:6)
-pheatmap(m, display_numbers=T, show_colnames=T, cluster_rows=F, cluster_cols=F)
+library(DT)
+library(highcharter)
+library(quantmod)
+library(tidyverse)
+data <- data.frame(
+                  group=LETTERS[1:5],
+                  value=c(13,7,9,21,2)
+                  )
+data <- data |>
+    arrange(desc(group)) |>
+    mutate(prop = value / sum(data$value) *100) |>
+    mutate(ypos = cumsum(prop)- 0.5*prop )
+  
+  # Basic piechart
+    # ggplot(data, aes(x="", y=prop, fill=group)) +
+    # geom_bar(stat="identity", width=1, color="white") +
+    # coord_polar("y", start=0) +
+    # theme_void() + 
+    # theme(legend.position="none") +
+    # 
+    # geom_text(aes(y = ypos, label = group), color = "white", size=6) +
+    # scale_fill_brewer(palette="Set1")
+    hc <- data |>
+    hchart("pie", hcaes(x = group, y = prop))|>
+    hc_title(text = "Highcharter Pie chart") |>
+    hc_subtitle(text = "Top 10 countries by population <br>techanswers88") |>
+    hc_add_theme(hc_theme_ggplot2())
+    
+    hc
 ```

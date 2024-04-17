@@ -17,10 +17,14 @@ When you click the **Knit** button a document will be generated that includes bo
 ```{r}
 library(shinydashboard)
 library(shiny)
+library(DT)
+library(highcharter)
+library(quantmod)
 source('helper_funcs.R')
+library(tidyverse)
 ui <- dashboardPage(
   dashboardHeader(
-    title = "VinUni DataVisualization Course",
+    title=div(img(src="https://vinuni.ap.panopto.com/Panopto/ContentCache/637196699518830531/_branding/6f870251-830c-4808-9e77-ab7d004564ea/637196697191200399_embedlogo.png", height = '50', width ='50'), "Data Visualization"),
 dropdownMenuOutput("messageMenu")
   ),
   dashboardSidebar(
@@ -29,19 +33,17 @@ dropdownMenuOutput("messageMenu")
       menuItem("DetailBoard", tabName = "detail", icon = icon("th"), badgeLabel = "developing", badgeColor = "green")
     )
   ),
+  skin = "black",
   dashboardBody(
     tabItems(
       # First tab content
       tabItem(tabName = "dashboard",
-        h2(paste0("Increase")),
-        fluidRow(
-          # A static infoBox
-          infoBox( "Cong ty chung khoan SSI","SSI (6.8%)",
-                  icon = icon("arrow-up-right-dots"), color = "purple"),
-          # Dynamic infoBoxes
-          infoBoxOutput("Box1"),
-          infoBoxOutput("Box2")
-        ),
+        # h2(paste0("Increase")),
+        # fluidRow(
+        #   valueBoxOutput("up1") ,
+        #   valueBoxOutput("up2") ,
+        #   valueBoxOutput("up3")
+        #   ),
         h2(paste0("Decrease")),
         fluidRow(
           valueBoxOutput("ExGBox") ,
@@ -57,7 +59,7 @@ dropdownMenuOutput("messageMenu")
             tableOutput("data"),
             width = 4
           ),
-          box(plotOutput("plot1"), width = 4),
+          column(highchartOutput("plot1"), width = 4),
           box(
             selectInput("state", "Choose a state:",
               list(`East Coast` = list("NY", "NJ", "CT"),
@@ -69,16 +71,7 @@ dropdownMenuOutput("messageMenu")
           )
         ),
       fluidRow(
-        box(
-            selectInput("state", "Choose a state:",
-              list(`East Coast` = list("NY", "NJ", "CT"),
-             `West Coast` = list("WA", "OR", "CA"),
-             `Midwest` = list("MN", "WI", "IA"))
-              ),
-            textOutput("result"),
-            width = 4
-          ),
-        box(plotOutput("plot2"), width =  4),
+        column( width = 8,h4("Stock Pice", align = 'center'), highchartOutput('lineHC') ),
         box(
             selectInput("watch list", "Add to list:",
               list(`East Coast` = list("NY", "NJ", "CT"),
@@ -112,73 +105,116 @@ server <- function(input, output) {
                ))
                
 })
-  output$Box1 <- renderInfoBox({
-    infoBox( 
-        "Ngan hang co phan ACB","ACB (6.3%)", 
-        icon = icon("arrow-up-right-dots"), 
-        color = "green")
+df <- data.frame(dose=c("D0.5", "D1", "D2"),
+                len=c(4.2, 10, 29.5))
+x <- getSymbols("GOOG", auto.assign = FALSE)
+y <- getSymbols("AMZN", auto.assign = FALSE)
+
+output$lineHC <- renderHighchart({
+highchart(type = "stock") |> 
+  hc_add_series(x) |> 
+  hc_add_series(y, type = "ohlc")
   })
-  output$Box2 <- renderInfoBox({
-    infoBox( 
-        "Cong ty co phan HPG","HPG (6.3%)", 
-        icon = icon("arrow-up-right-dots"), 
-        color = "green")
-  })
-  output$ExGBox <- renderValueBox({
-         valueBox(
-            VB_style( paste0( '-', '$', "55.55", " m"),  "font-size: 60%;"  ),
-            paste0("Goods imports (", "90" ,"%)"), 
-            icon = icon("arrow-up-right-dots"), #icon("sign-in"),
-            color = "green"
-         )
-      })
+
+# output$up1 <- renderValueBox({
+#        valueBox(
+#           "SSI",
+#           paste0("1.2 (", "6.7" ,"%)"), 
+#           icon = icon("arrow-trend-up"), #icon("sign-in"),
+#           color = "green"
+#        )
+#     })
+#       
+#       ###
+# output$up2 <- renderValueBox({
+#    valueBox(
+#       "DIG",
+#       paste0("2.1 (", "6.0" ,"%)"), 
+#       icon = icon('arrow-trend-up'),# icon("sign-out"),
+#       color = "green"
+#    )
+# })
+# 
+# ###
+# output$up3 <- renderValueBox({
+#    valueBox(
+#       "NVL",
+#       paste0("1.7 (", "6.9" ,"%)"), 
+#       icon = icon("arrow-trend-up"), #icon("sign-in"),
+#       color = "fuchsia"
+#    )
+# })
+output$ExGBox <- renderValueBox({
+       valueBox(
+          "PDR",
+          paste0("1.2 (", "6.7" ,"%)"), 
+          icon = icon("arrow-trend-down"), #icon("sign-in"),
+          color = "red"
+       )
+    })
       
       ###
-      output$ImGBox <- renderValueBox({
-         valueBox(
-            VB_style( paste0( '-', '$', "55.55", " m"),  "font-size: 60%;"  ),
-            paste0("Goods imports (", "90" ,"%)"), 
-            icon = icon('import', lib = 'glyphicon'),# icon("sign-out"),
-            color = "red"
-         )
-      })
-      
-      ###
-      output$BlGBox <- renderValueBox({
-         valueBox(
-            VB_style( paste0( '-', '$', "55.55", " m"),  "font-size: 60%;"  ),
-            "Goods balance", 
-            icon = icon("balance-scale"),
-            color = 'red' 
-         )
-      })
+output$ImGBox <- renderValueBox({
+   valueBox(
+      "DIG",
+      paste0("2.1 (", "7.0" ,"%)"), 
+      icon = icon('arrow-trend-down'),# icon("sign-out"),
+      color = "aqua"
+   )
+})
+
+###
+output$BlGBox <- renderValueBox({
+   valueBox(
+      "NVL",
+      paste0("1.7 (", "6.5" ,"%)"), 
+      icon = icon("arrow-trend-down"), #icon("sign-in"),
+      color = "red"
+   )
+})
   
-  output$data <- renderTable({
-      mtcars[, c("mpg", input$variable), drop = FALSE]
-    }, rownames = TRUE)
   
-  output$plot1 <- renderPlot({
+  output$plot1 <- renderHighchart({
     data <- data.frame(
-    group=LETTERS[1:5],
-    value=c(13,7,9,21,2)
-    )
+                  group=c("Resourses", "Bank", "Retail", "Real Estate", "Technology"),
+                  value=c(13,7,9,21,2)
+                  )
 
   # Compute the position of labels
-  data <- data |>
+    data <- data |>
     arrange(desc(group)) |>
     mutate(prop = value / sum(data$value) *100) |>
     mutate(ypos = cumsum(prop)- 0.5*prop )
   
   # Basic piechart
-  ggplot(data, aes(x="", y=prop, fill=group)) +
-    geom_bar(stat="identity", width=1, color="white") +
-    coord_polar("y", start=0) +
-    theme_void() + 
-    theme(legend.position="none") +
+    # ggplot(data, aes(x="", y=prop, fill=group)) +
+    # geom_bar(stat="identity", width=1, color="white") +
+    # coord_polar("y", start=0) +
+    # theme_void() + 
+    # theme(legend.position="none") +
+    # 
+    # geom_text(aes(y = ypos, label = group), color = "white", size=6) +
+    # scale_fill_brewer(palette="Set1")
+    hc <- data |>
+    hchart("pie", hcaes(x = group, y = prop))|>
+    hc_title(text = "Market insight in Industry")
+    thm <- hc_theme(
+  # apparently a theme does not work without a chart option
+  chart = list(backgroundColor = "transparent"),
+  plotOptions = 
+    list(
+      line = 
+        list(
+          marker = 
+            list(
+              enabled = TRUE
+              )
+          )
+      )
+  )
+  hc |> hc_add_theme(thm)
     
-    geom_text(aes(y = ypos, label = group), color = "white", size=6) +
-    scale_fill_brewer(palette="Set1")
-
+    
   })
 }
 shinyApp(ui, server)
