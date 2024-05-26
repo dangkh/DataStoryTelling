@@ -282,7 +282,6 @@ output$lineHC <- renderHighchart({
     name = "Interest Rate",
     data = list_parse2(hc_rates_data),
     color = "red",
-    yAxis = 1,
     tooltip = list(valueSuffix = "%")
   ) %>% 
   hc_title(text = "Stock Price Data") %>%

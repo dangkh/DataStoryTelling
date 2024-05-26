@@ -1,0 +1,316 @@
+library(shinydashboard)
+library(shiny)
+library(DT)
+library(highcharter)
+library(quantmod)
+library(scales)
+library(ggplot2)
+source('helper_funcs.R')
+library(tidyverse)
+library(dplyr)
+
+VNindex <- read_csv("VNINDEX.csv")
+Vnabs = abs((VNindex[700,5] - VNindex[699,5]) / VNindex[699,5] *100)
+vnicon = "arrow-trend-down"
+vncolor = "red"
+if (VNindex[700,5] > VNindex[699,5]){
+  vnicon = "arrow-up-down"
+  vncolor = "green"
+}
+
+VN30index <- read_csv("VN30INDEX.csv")
+Vn30abs = abs(
+  (VN30index[700,5] - VN30index[699,5]) /  VN30index[699,5] *100)
+vn30icon = "arrow-trend-down"
+vn30color = "red"
+if (VN30index[700,5] > VN30index[699,5]){
+  vn30icon = "arrow-up-down"
+  vn30color = "green"
+}
+
+VN30 <- read_csv("./data/VN30.csv")
+
+VN30$Date <- as.Date(VN30$Date, format="%Y-%m-%d")
+VN30 <- VN30 %>% arrange(Date)
+sortedVN30 <- VN30 %>% 
+  group_by(Name) %>%
+  slice_tail(n = 2) %>% 
+  ungroup()
+
+sortedVN30 <- sortedVN30 %>%
+  arrange(Name, Date) %>%
+  group_by(Name) %>%
+  mutate(Close_Change = Close - lag(Close),
+         Percentage_Close_Change = (Close_Change / lag(Close)) * 100) %>%
+  ungroup()
+sortedVN30 <- sortedVN30 %>% filter(!is.na(Close_Change))
+# Get top 3 increases in volume
+top_increases <- sortedVN30 %>% arrange(desc(Percentage_Close_Change)) %>% slice_head(n = 3)
+
+# Get top 3 decreases in volume
+top_decreases <- sortedVN30 %>% arrange(Percentage_Close_Change) %>% slice_head(n = 3)
+
+sortVol <- VN30 %>% 
+  group_by(Name) %>%
+  slice_tail(n = 2) %>% 
+  ungroup()
+
+sortVol <- sortVol %>%
+  arrange(Name, Date) %>%
+  group_by(Name) %>%
+  mutate(vol_Change = Volume - lag(Volume)) %>%
+  ungroup()
+sortVol <- sortVol %>% filter(!is.na(vol_Change))
+# Get top 3 increases in volume
+topVol_increases <- sortVol %>% arrange(desc(vol_Change)) %>% slice_head(n = 7)
+topVol_increases <- topVol_increases %>% mutate(c = 1)
+# Get top 3 decreases in volume
+topVol_decreases <- sortVol %>% arrange(vol_Change) %>% slice_head(n = 7)
+topVol_decreases <- topVol_decreases %>% mutate(c = 0)
+
+df1_subset <- topVol_increases %>% select(Name, Volume, c)
+df2_subset <- topVol_decreases %>% select(Name, Volume, c)
+df2_subset <- df2_subset %>% mutate(Volume = Volume * -1)
+merged_df <- rbind(df1_subset, df2_subset)
+
+topshow_increase <- topVol_increases %>% select(Open, Close, High, Low, Volume)
+topshow_decrease <- topVol_decreases %>% select(Open, Close, High, Low, Volume)
+
+stockNames = c('STB', 'NVL', 'VJC', 'VRE', 'VHM', 'KDH', 'VNM', 'TCH', 'PNJ', 'FPT', 'BID', 'POW', 'MBB', 'PLX', 'GAS', 'HPG', 'HDB', 'MWG', 'VCB', 'SSI', 'TCB', 'CTG', 'BVH', 'PDR', 'VIC', 'REE', 'TPB', 'MSN', 'SBT')
+
+newdf <- sortVol %>% select(Name, Volume)
+# ("Resourses", "Bank", "Retail", "Real Estate", "Technology", "Oils", "Others")
+# ("HPG"), 
+# ("BID", "CTG", "BVH", "HDB", "MBB","SSI","STB","TCB","TPB","VCB"),
+# ("MSN","MWG","PNJ","REE","SBT","VNM","VRE"),
+# ("KDH","NVL","PDR","TCH","VHM"),
+# ("FPT"),
+# ("GAS","PLX","POW"),
+# ("VIC","VJC")
+stock_to_field <- list(
+  Resourses = c("HPG"),
+  Bank = c("BID", "CTG", "BVH", "HDB", "MBB", "SSI", "STB", "TCB", "TPB", "VCB"),
+  Retail = c("MSN", "MWG", "PNJ", "REE", "SBT", "VNM", "VRE"),
+  `Real Estate` = c("KDH", "NVL", "PDR", "TCH", "VHM"),
+  Technology = c("FPT"),
+  Oils = c("GAS", "PLX", "POW"),
+  Others = c("VIC", "VJC")
+)
+field_df <- stack(stock_to_field)
+colnames(field_df) <- c("Name", "Field")
+newdf <- newdf %>% left_join(field_df, by = "Name")
+summary_df <- newdf %>%
+  group_by(Field) %>%
+  summarize(Total_Volume = sum(Volume))
+
+vnrate <- read_csv("full_dates_values.csv")
+vnrate <- tail(vnrate, 1300)
+
+vnrate <- vnrate %>%
+  inner_join(VN30index, by = "Date")
+
+vnrate <- vnrate %>%
+  mutate(normalized_rates = scales::rescale(Value, to = c(min(vnrate$Low), max(vnrate$High))))
+
+hc_rates_data <- vnrate %>%
+  mutate(Date = datetime_to_timestamp(Date)) %>%
+  select(Date, normalized_rates)
+
+function(input, output) {
+  set.seed(122)
+  currentDate <- Sys.Date() 
+  output$messageMenu <- renderMenu({
+    dropdownMenu(type = "notifications", 
+                 notificationItem(
+                   icon = icon("exclamation-triangle"),
+                   status = "warning", 
+                   text = paste("data is update at " , currentDate, sep = "",collapse = NULL)
+                 ))
+    
+  })
+  output$mytable1 <- DT::renderDataTable({
+    DT::datatable(topshow_increase, options = list(dom = 't'))
+  })
+  
+  # sorted columns are colored now because CSS are attached to them
+  output$mytable2 <- DT::renderDataTable({
+    DT::datatable(topshow_decrease, options = list(dom = 't'))
+  })
+  
+  # customize the length drop-down menu; display 5 rows per page by default
+  output$mytable3 <- DT::renderDataTable({
+    DT::datatable(merged_df, options = list(dom = 't'))
+  })  
+  
+  # output$lineHC <- renderHighchart({
+  # highchart(type = "stock") |> 
+  #   hc_add_series(x) |> 
+  #   hc_add_series(y, type = "ohlc")
+  #   })
+  
+  # Convert the data frame to a format suitable for highcharter
+  hc_data <- VN30index %>%
+    mutate(Date = datetime_to_timestamp(Date)) %>%
+    select(Date, Open, High, Low, Close)
+  
+  hc_data1 <- VNindex %>%
+    mutate(Date = datetime_to_timestamp(Date)) %>%
+    select(Date, Open, High, Low, Close)
+  
+  # Create the highcharter plot
+  output$lineHC <- renderHighchart({
+    highchart(type = "stock") %>%
+      hc_add_series(
+        type = "candlestick",
+        name = "Stock Price",
+        data = list_parse2(hc_data),
+        tooltip = list(valueDecimals = 2)
+      ) %>%
+      hc_add_series(
+        type = "line",
+        name = "Interest Rate",
+        data = list_parse2(hc_rates_data),
+        color = "red",
+        yAxis = 1,
+        tooltip = list(valueSuffix = "%")
+      ) %>% 
+      hc_title(text = "Stock Price Data") %>%
+      hc_xAxis(type = "datetime") %>%
+      hc_yAxis_multiples(
+        list(title = list(text = "Price")),
+        list(title = list(text = "Interest Rate"), opposite = TRUE)
+      )
+  })
+  
+  output$m1 <- renderValueBox({
+    valueBox(
+      "VnIndex",
+      paste0(VNindex[699,5], " to ", VNindex[700,5], " (", sprintf("%0.2f", Vnabs) ,"%)"),
+      icon = icon(vnicon), #icon("sign-in"),
+      color = vncolor
+    )
+  })
+  
+  ###
+  output$m2 <- renderValueBox({
+    valueBox(
+      "VN30",
+      paste0(VN30index[699,5], " to ", VN30index[700,5], " (", sprintf("%0.2f", Vn30abs),"%)"),
+      icon = icon(vn30icon),# icon("sign-out"),
+      color = vn30color
+    )
+  })
+  
+  ###
+  output$m3 <- renderValueBox({
+    valueBox(
+      "HNX",
+      paste0("0.5 (", "0.1" ,"%)"),
+      icon = icon("arrow-trend-up"), #icon("sign-in"),
+      color = "green"
+    )
+  })
+  
+  output$up1 <- renderValueBox({
+    valueBox(
+      top_increases[1,4],
+      paste0(sprintf("%0.2f",top_increases[1,3] - top_increases[1,2]), "(", top_increases[1,8] ,"%)"),
+      icon = icon("arrow-trend-up"), #icon("sign-in"),
+      color = "green"
+    )
+  })
+  
+  ###
+  output$up2 <- renderValueBox({
+    valueBox(
+      top_increases[2,4],
+      paste0(top_increases[2,3] - top_increases[2,2] + 0.4, "(", top_increases[2,8]+0.1,"%)"),
+      icon = icon('arrow-trend-up'),# icon("sign-out"),
+      color = "green"
+    )
+  })
+  
+  ###
+  output$up3 <- renderValueBox({
+    valueBox(
+      top_increases[3,4],
+      paste0("0.1 (", "0.1" ,"%)"),
+      icon = icon("arrow-trend-up"), #icon("sign-in"),
+      color = "green"
+    )
+  })
+  output$ExGBox <- renderValueBox({
+    valueBox(
+      top_decreases[1,4],
+      paste0("1.2 (", "6.7" ,"%)"), 
+      icon = icon("arrow-trend-down"), #icon("sign-in"),
+      color = "aqua"
+    )
+  })
+  
+  ###
+  output$ImGBox <- renderValueBox({
+    valueBox(
+      top_decreases[2,4],
+      paste0("2.1 (", "3.0" ,"%)"), 
+      icon = icon('arrow-trend-down'),# icon("sign-out"),
+      color = "red"
+    )
+  })
+  
+  ###
+  output$BlGBox <- renderValueBox({
+    valueBox(
+      top_decreases[3,4],
+      paste0("1.7 (", "2.5" ,"%)"), 
+      icon = icon("arrow-trend-down"), #icon("sign-in"),
+      color = "red"
+    )
+  })
+  
+  output$plotd <- renderHighchart({
+    hchart(merged_df, "column", hcaes(x = Name, y = Volume, group = c))
+  })
+  output$plot1 <- renderHighchart({
+    data <- summary_df %>% rename(group = Field, value=Total_Volume)
+    # Compute the position of labels
+    data <- data |>
+      arrange(desc(group)) |>
+      mutate(prop = value / sum(data$value) *100) |>
+      mutate(ypos = cumsum(prop)- 0.5*prop )
+    
+    hc <- data |>
+      hchart("pie", hcaes(x = group, y = prop))|>
+      hc_title(text = "Market insight in Industry")
+    thm <- hc_theme(
+      # apparently a theme does not work without a chart option
+      chart = list(backgroundColor = "transparent"),
+      plotOptions = 
+        list(
+          line = 
+            list(
+              marker = 
+                list(
+                  enabled = TRUE
+                )
+            )
+        )
+    )
+    hc |> hc_add_theme(thm)
+    
+  })
+  
+  output$stock_chart_detail <- renderHighchart({
+    # Get the selected stock name
+    stock_name <- input$stockdetail
+    
+    # Fetch stock data based on the selected stock name
+    stock_data <- VN30[VN30$Name == stock_name, ]
+    
+    # Create Highchart object
+    highchart() %>%
+      hc_title(text = paste("Stock Data for", stock_name)) %>%
+      hc_add_series(data = stock_data$Close, type = "line", name = "Close Price") %>%
+      hc_xAxis(categories = stock_data$Date)
+  })
+}
